@@ -1,50 +1,60 @@
-const express = require('express')
-const write = require('./write')
-const getFullURL = require('./get-full-url')
-const delay = require('./delay')
+const express = require("express");
+const write = require("./write");
+const getFullURL = require("./get-full-url");
+const delay = require("./delay");
 
-module.exports = (db, name) => {
-  const router = express.Router()
-  router.use(delay)
+module.exports = (db, name, ebd) => {
+	const router = express.Router();
+	router.use(delay);
 
-  function show(req, res, next) {
-    res.locals.data = db.get(name).value()
-    next()
-  }
+	function show(req, res, next) {
+		res.locals.data = db.get(name).value();
+		next();
+	}
 
-  function create(req, res, next) {
-    db.set(name, req.body).value()
-    res.locals.data = db.get(name).value()
+	function create(req, res, next) {
+		db.set(name, req.body).value();
+		res.locals.data = db.get(name).value();
 
-    res.setHeader('Access-Control-Expose-Headers', 'Location')
-    res.location(`${getFullURL(req)}`)
+		res.setHeader("Access-Control-Expose-Headers", "Location");
+		res.location(`${getFullURL(req)}`);
 
-    res.status(201)
-    next()
-  }
+		res.status(201);
+		next();
+	}
 
-  function update(req, res, next) {
-    if (req.method === 'PUT') {
-      db.set(name, req.body).value()
-    } else {
-      db
-        .get(name)
-        .assign(req.body)
-        .value()
-    }
+	function update(req, res, next) {
+		if (req.method === "PUT") {
+			db.set(name, req.body).value();
+		} else {
+			db
+				.get(name)
+				.assign(req.body)
+				.value();
+		}
 
-    res.locals.data = db.get(name).value()
-    next()
-  }
+		res.locals.data = db.get(name).value();
+		next();
+	}
 
-  const w = write(db)
+	const w = write(db);
+	
+	console.log(`[${name}]Behaviors:`, JSON.stringify(ebd));
+	if( ebd.get || ebd.post || ebd.put || ebd.patch ){
+		var route = router.route("/");
+		if( ebd.get ){
+			route.get(show);
+		}
+		if( ebd.post ){
+			route.post(create, w);
+		}
+		if( ebd.put ){
+			route.put(update, w);
+		}
+		if( ebd.patch ){
+			route.patch(update, w);
+		}		
+	}
 
-  router
-    .route('/')
-    .get(show)
-    .post(create, w)
-    .put(update, w)
-    .patch(update, w)
-
-  return router
-}
+	return router;
+};

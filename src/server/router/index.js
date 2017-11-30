@@ -13,12 +13,13 @@ const mixins = require("../mixins");
 
 
 
-module.exports = (source, customOpts = {}) => {
+module.exports = (source, customOpts = {}, entityBehaviorDescriptor) => {
 	var opts = {
 		foreignKeySuffix: "Id",
 		serveWholeDb: false,
 		autoRenderSuccessfulResponse: true,
-		autoRenderFailureResponse: true
+		autoRenderFailureResponse: true,
+		mandatoryEntityBehaviorDescriptors: false
 	};
 
 	Object.assign(opts, customOpts);
@@ -38,6 +39,15 @@ module.exports = (source, customOpts = {}) => {
 	} else {
 		db = low(source, { storage: fileAsync });
 	}
+
+	var ebds;
+	if( entityBehaviorDescriptor ){
+		if (_.isObject(entityBehaviorDescriptor)) {
+			ebds = entityBehaviorDescriptor;
+		} else {
+			ebds = require(entityBehaviorDescriptor);
+		}
+	} 
 
 	validateData(db.getState());
 
@@ -68,13 +78,37 @@ module.exports = (source, customOpts = {}) => {
 	// Create routes
 	db
 		.forEach((value, key) => {
+			var defaultEbd = {
+				list: 	true,
+				get: 	true,
+				post: 	true,
+				put: 	true,
+				patch: 	true,
+				delete: true	
+			};
+			var ebd;
+			if( ebds ){
+				ebd = ebds[key];
+				if( !ebd ){
+					if( opts.mandatoryEntityBehaviorDescriptors ){
+						throw new Error(`Mandatory entity behavior descriptor not found for entity [${key}]`);
+					} else {
+						ebd = defaultEbd;
+					}
+				} 
+			} else if( opts.mandatoryEntityBehaviorDescriptors ){
+				throw new Error("Mandatory entity behavior descriptor file/object not provided.");
+			} else {
+				ebd = defaultEbd;
+			}
+
 			if (_.isPlainObject(value)) {
-				router.use(`/${key}`, singular(db, key));
+				router.use(`/${key}`, singular(db, key, ebd));
 				return;
 			}
 
 			if (_.isArray(value)) {
-				router.use(`/${key}`, plural(db, key, opts));
+				router.use(`/${key}`, plural(db, key, ebd, opts));
 				return;
 			}
 
