@@ -127,8 +127,6 @@ module.exports = (source, customOpts = {}, entityBehaviorDescriptor) => {
 			res.status(404);
 			res.locals.data = { message: "No resource found." };
 		}
-
-		console.log("reslocalsdata + " + JSON.stringify(res.locals.data));
 		
 		if( opts.autoRenderSuccessfulResponse ){
 			router.render(req, res, next);
