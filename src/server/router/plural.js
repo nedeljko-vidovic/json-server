@@ -6,7 +6,7 @@ const getFullURL = require("./get-full-url");
 const utils = require("../utils");
 const delay = require("./delay");
 
-module.exports = (db, name, ebd, opts) => {
+module.exports = (db, name, ebd, securityProvider, opts) => {
 	// Create router
 	const router = express.Router();
 	router.use(delay);
@@ -49,6 +49,15 @@ module.exports = (db, name, ebd, opts) => {
 	// GET /name?_start=&_end=&
 	// GET /name?_embed=&_expand=
 	function list(req, res, next) {
+
+		if( Array.isArray(ebd.list) ){
+			if( !securityProvider.isAuthorized(req, ebd.list) ){
+				res.locals.myError = { status: 403, message: "You are not authorized to list this resource." };
+				next();
+				return;
+			}
+		}
+
 		// Resource chain
 		let chain = db.get(name);
 
@@ -61,8 +70,8 @@ module.exports = (db, name, ebd, opts) => {
 		let _sort = req.query._sort;
 		let _order = req.query._order;
 		let _limit = req.query._limit;
-		let _embed = req.query._embed;
-		let _expand = req.query._expand;
+		let _embed = null; // req.query._embed; //FIXME disabled as these pose security concerns with the introduction of EBDs. Reintroduce with proper access group checking.
+		let _expand = null; // req.query._expand;
 		delete req.query.q;
 		delete req.query._start;
 		delete req.query._end;
@@ -228,8 +237,17 @@ module.exports = (db, name, ebd, opts) => {
 	// GET /name/:id
 	// GET /name/:id?_embed=&_expand
 	function show(req, res, next) {
-		const _embed = req.query._embed;
-		const _expand = req.query._expand;
+		if( Array.isArray(ebd.get) ){
+			if( !securityProvider.isAuthorized(req, ebd.get) ){
+				res.locals.myError = { status: 403, message: "You are not authorized to get this resource." };
+				next();
+				return;
+			}
+		}
+
+		const _embed = null; // req.query._embed; //FIXME disabled as these pose security concerns with the introduction of EBDs. Reintroduce with proper access group checking.
+		const _expand = null; // req.query._expand;
+		
 		const resource = db
 			.get(name)
 			.getById(req.params.id)
@@ -255,6 +273,14 @@ module.exports = (db, name, ebd, opts) => {
 
 	// POST /name
 	function create(req, res, next) {
+		if( Array.isArray(ebd.post) ){
+			if( !securityProvider.isAuthorized(req, ebd.post) ){
+				res.locals.myError = { status: 403, message: "You are not authorized to create this resource." };
+				next();
+				return;
+			}
+		}
+
 		const resource = db
 			.get(name)
 			.insert(req.body)
@@ -272,6 +298,13 @@ module.exports = (db, name, ebd, opts) => {
 	// PUT /name/:id
 	// PATCH /name/:id
 	function update(req, res, next) {
+		if( Array.isArray(ebd.put) ){
+			if( !securityProvider.isAuthorized(req, ebd.put) ){
+				res.locals.myError = { status: 403, message: "You are not authorized to update this resource." };
+				next();
+				return;
+			}
+		}
 		const id = req.params.id;
 		let chain = db.get(name);
 
@@ -291,6 +324,13 @@ module.exports = (db, name, ebd, opts) => {
 
 	// DELETE /name/:id
 	function destroy(req, res, next) {
+		if( Array.isArray(ebd.delete) ){
+			if( !securityProvider.isAuthorized(req, ebd.delete) ){
+				res.locals.myError = { status: 403, message: "You are not authorized to delete this resource." };
+				next();
+				return;
+			}
+		}
 		const resource = db
 			.get(name)
 			.removeById(req.params.id)
@@ -325,15 +365,13 @@ module.exports = (db, name, ebd, opts) => {
 			simpleRoute.post(create, w);
 		}
 	}
-	if( ebd.get || ebd.put || ebd.patch || ebd.delete ){
+	if( ebd.get || ebd.put || ebd.delete ){
 		var idRoute = router.route("/:id");
 		if( ebd.get ){
 			idRoute.get(show);
 		}
 		if( ebd.put ){
 			idRoute.put(update, w);
-		}
-		if( ebd.patch ){
 			idRoute.patch(update, w);
 		}	
 		if( ebd.delete ){
