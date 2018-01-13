@@ -71,7 +71,6 @@ module.exports = (source, customOpts = {}, entityBehaviorDescriptor, securityPro
 		res.jsonp(res.locals.data);
 		// res.end();
 		// req.connection.destroy();
-		console.log("destroyed");
 	};
 
 	// GET /db
