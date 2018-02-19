@@ -116,6 +116,13 @@ module.exports = (source, customOpts = {}, entityBehaviorDescriptor, securityPro
 			}
 
 			if (_.isArray(value)) {
+				value.forEach( (x1) =>{
+					let duplicate = value.filter( x2 => x1.id === x2.id ).length > 1;
+					if( duplicate ){
+						throw new Error(`Duplicate primary key value for entity ${key}: ${x1.id}`);
+					}
+				});
+
 				router.use(`/${key}`, plural(db, key, ebd, securityProvider, opts));
 				return;
 			}
